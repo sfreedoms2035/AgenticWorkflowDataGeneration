@@ -577,6 +577,42 @@ def validate_task(filepath):
              f"Meta-generation phrases found: {meta_cot_hits[:5]}",
              fixable_locally=False)
 
+    # ── Gate 17: Raw Thinking File Integrity ──────────────────────────────
+    # Check the auxiliary thinking.txt file for extraction failures or emptiness
+    # Derive thinking path: Output/json/XXX.json -> Output/thinking/XXX.txt
+    try:
+        json_dir = os.path.dirname(os.path.abspath(filepath))
+        base_name = os.path.splitext(os.path.basename(filepath))[0]
+        # Navigate from .../Output/json/ to .../Output/thinking/
+        output_dir = os.path.dirname(json_dir)
+        thinking_dir = os.path.join(output_dir, "thinking")
+        thinking_path = os.path.join(thinking_dir, f"{base_name}.txt")
+
+        if os.path.exists(thinking_path):
+            with open(thinking_path, 'r', encoding='utf-8', errors='replace') as tf:
+                raw_think = tf.read().strip()
+                
+            fail_markers = ["[NO_THINKING_SECTION]", "[EXTRACTION_FAILED]", "[EXTRACTION_ERROR]"]
+            for marker in fail_markers:
+                if marker in raw_think:
+                    fail("thinking_quality", 
+                         f"Internal thinking monologue extraction failed: {marker}", 
+                         fixable_locally=False)
+                    break
+            
+            # Check for effective length (excluding markers)
+            if not raw_think or len(raw_think) < 100:
+                 fail("thinking_quality", 
+                      f"Internal thinking monologue is critically undersized ({len(raw_think)} chars)", 
+                      fixable_locally=False)
+        else:
+            # If the thinking file is missing entirely, it's a pipeline failure
+            fail("thinking_quality", "Missing auxiliary thinking.txt file", fixable_locally=False)
+
+    except Exception as e:
+        # Fallback to avoid breaking validation if filesystem permissions or paths are weird
+        pass
+
     # Add enriched summary stats to report
     code_lines_stat = 0
     test_criteria_stat = 0
