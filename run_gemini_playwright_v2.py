@@ -540,8 +540,22 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
             permissions=["clipboard-read", "clipboard-write"]
         )
 
+        # Close any stale pages/tabs from previous tasks in this persistent context
+        for stale_page in browser.pages:
+            try:
+                stale_page.close()
+            except Exception:
+                pass
+        
         page = browser.new_page()
         page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
+        page.wait_for_timeout(2000)
+        
+        # If we got redirected to /search or elsewhere, force back to /app
+        if "/app" not in page.url or "/search" in page.url:
+            log(f"  ⚠️ Redirected to {page.url[:80]} — forcing navigation to /app")
+            page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
+            page.wait_for_timeout(2000)
 
         # --- AUTO-DISMISS: Activity/Consent Pages ---
         def ensure_on_gemini():
