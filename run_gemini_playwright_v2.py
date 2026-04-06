@@ -682,6 +682,39 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
             page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
             page.wait_for_timeout(3000)
 
+        # --- MINIMIZE SIDEBAR (SAFETY) ---
+        log("Hiding left sidebar to prevent chat history overlay issues...")
+        try:
+            page.evaluate("""() => {
+                // Find the hamburger menu button (usually has mat-icon 'menu')
+                const buttons = Array.from(document.querySelectorAll('button'));
+                let hamburger = null;
+                for (const b of buttons) {
+                    const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+                    if (aria.includes('menü') || aria.includes('menu') || aria.includes('collapse')) {
+                        hamburger = b;
+                        break;
+                    }
+                    const icon = b.querySelector('mat-icon');
+                    if (icon && icon.textContent.trim() === 'menu') {
+                        hamburger = b;
+                        break;
+                    }
+                }
+                
+                // If sidebar has visible "Neuer Chat" text or similar, it's expanded.
+                const isExpanded = Array.from(document.querySelectorAll('*')).some(e => 
+                    (e.textContent === 'Neuer Chat' || e.textContent === 'New chat') && e.offsetParent !== null
+                );
+                
+                if (hamburger && isExpanded) {
+                    hamburger.click();
+                }
+            }""")
+            page.wait_for_timeout(500)
+        except Exception:
+            pass
+
         # Wait for chat input — with escalating timeouts
         chat_ready = False
         for timeout in [10000, 10000, 15000]:
