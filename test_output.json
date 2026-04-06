@@ -1,0 +1,50 @@
+[
+    {
+        "TD_TD_ID": "TD-CODING-Study_European-AI-Standards_FINAL-T7t1-20260406-v1.0",
+        "prompt_version": "CodingTasks_v1.0",
+        "model_used_generation": "Gemini-3.1-pro",
+        "knowledge_source_date": "2025-03-24",
+        "task_classification": "REGULATORY",
+        "affected_role": "Senior DevOps Engineer",
+        "programming_language": "C++",
+        "difficulty": "84",
+        "task_type": "coding_task",
+        "conversations": [
+            {
+                "role": "user",
+                "content": "Problem statement missing."
+            },
+            {
+                "role": "assistant",
+                "reasoning": "<think>\n1. Initial Query Analysis...\n</think>",
+                "content": "{\n  \"formal_requirements\": [\n    {\n      \"req_id\": \"REQ-SW-001\",\n      \"description\": \"Compliance Engine must calculate statistical distance\",\n      \"pass_criteria\": \"Kullback-Leibler Divergence\"\n    }\n  ],\n  \"architecture_block\": \"Our compliance verification architecture...\",\n  \"executable_code\": \"// Copyright by 4QDR.AI, AD knowledge Bot v1.0\\n#include <iostream>\\nint main() { return 0; }\",\n  \"documentation\": \"// Copyright by 4QDR.AI, AD knowledge Bot v1.0\\n# Automotive AI Compliance Verification Engine\",\n  \"usage_examples\": \"Our automotive compliance engine...\",\n  \"testbench_and_mocks\": \"Included in Code/Examples\",\n  \"test_criteria\": [\n    \"REQ-SW-001 (Covariate Shift): Verify numerical stability\"\n  ]\n}"
+            },
+            {
+                "role": "user",
+                "content": "[No Thinking] How does the Mutex work?"
+            },
+            {
+                "role": "assistant",
+                "reasoning": "<think></think>",
+                "content": "The `std::lock_guard` strategy..."
+            },
+            {
+                "role": "user",
+                "content": "[No Thinking] What is the worst-case?"
+            },
+            {
+                "role": "assistant",
+                "reasoning": "<think></think>",
+                "content": "The worst case is O(N)."
+            }
+        ],
+        "key_words": [
+            "Automotive AI",
+            "ISO 26262"
+        ],
+        "summary": "Implement a real-time compliance validation engine",
+        "evaluation_criteria": [
+            "C++ Production Quality"
+        ]
+    }
+]

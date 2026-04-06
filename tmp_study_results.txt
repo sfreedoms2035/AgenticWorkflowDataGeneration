@@ -1,0 +1,108 @@
+﻿Found 17 Study_European JSON files
+
+  PASS Study_European-AI-Standards_FINAL_Turn1_Task1.json: CoT=14124, Ans=24576, Code=427
+  PASS Study_European-AI-Standards_FINAL_Turn1_Task2.json: CoT=17558, Ans=30173, Code=439
+  PASS Study_European-AI-Standards_FINAL_Turn2_Task1.json: CoT=14402, Ans=40540, Code=610
+  PASS Study_European-AI-Standards_FINAL_Turn2_Task2.json: CoT=10848, Ans=32585, Code=376
+  FAIL Study_European-AI-Standards_FINAL_Turn3_Task1.json: CoT=8074, Ans=18978, Code=198
+       [richness_and_complexity] CoT too short: 8074 chars (min 9000)
+       [richness_and_complexity] Code too short: ~198 lines (min 300)
+       [cot_structure] Missing CoT parent headers: 1.
+       [cot_structure] Missing 31 CoT sub-elements: 1.1, 1.2, 2.1, 2.2, 2.3...
+  FAIL Study_European-AI-Standards_FINAL_Turn3_Task2.json: CoT=13916, Ans=37540, Code=486
+       [followup_quality] Turn 2: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write a 2-3 sentence technical inquiry...')
+       [followup_quality] Turn 3: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write the first technical response here...')
+       [followup_quality] Turn 4: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write another 2-3 sentence...')
+       [followup_quality] Turn 5: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write the final technical response here...')
+  FAIL Study_European-AI-Standards_FINAL_Turn4_Task1.json: CoT=13094, Ans=37276, Code=449
+       [conversation_completeness] Turn 0: user prompt must start with '[Thinking]'
+       [conversation_completeness] Turn 2: user prompt must start with '[No Thinking]'
+       [conversation_completeness] Turn 4: user prompt must start with '[No Thinking]'
+  PASS Study_European-AI-Standards_FINAL_Turn4_Task2.json: CoT=13429, Ans=56072, Code=638
+  FAIL Study_European-AI-Standards_FINAL_Turn5_Task1.json: CoT=11809, Ans=39882, Code=558
+       [cot_structure] Missing CoT sub-elements: 6.1, 6.2, 6.3
+  PASS Study_European-AI-Standards_FINAL_Turn5_Task2.json: CoT=12129, Ans=40627, Code=531
+  FAIL Study_European-AI-Standards_FINAL_Turn6_Task1.json: CoT=457, Ans=40381, Code=532
+       [richness_and_complexity] CoT too short: 457 chars (min 9000)
+       [cot_structure] Missing CoT parent headers: 1., 2., 3., 4., 5., 6., 7., 8.
+       [cot_structure] Missing 30 CoT sub-elements: 1.2, 2.1, 2.2, 2.3, 2.4...
+       [followup_quality] Turn 2: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write a 2-3 sentence technical inquiry...')
+       [followup_quality] Turn 3: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write the first technical response here...')
+       [followup_quality] Turn 4: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write another 2-3 sentence...')
+       [followup_quality] Turn 5: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write the final technical response here...')
+  FAIL Study_European-AI-Standards_FINAL_Turn6_Task1_FollowupRepairPrompt.txt.json: CoT=5782, Ans=208, Code=1
+       [json_structure] Missing required field: 'training_data_id'
+       [json_structure] Missing required field: 'prompt_version'
+       [json_structure] Missing required field: 'model_used_generation'
+       [json_structure] Missing required field: 'knowledge_source_date'
+       [json_structure] Missing required field: 'document'
+       [json_structure] Missing required field: 'affected_role'
+       [json_structure] Missing required field: 'date_of_generation'
+       [json_structure] Missing required field: 'key_words'
+       [json_structure] Missing required field: 'summary'
+       [json_structure] Missing required field: 'difficulty'
+       [json_structure] Missing required field: 'evaluation_criteria'
+       [conversation_completeness] Turn 4: contains extraction placeholder 'Follow up 2?'
+       [conversation_completeness] Turn 5: contains extraction placeholder 'Response 2.'
+       [conversation_completeness] Turn 2: follow-up user prompt too short (32 chars, min 100)
+       [conversation_completeness] Turn 4: follow-up user prompt too short (12 chars, min 100)
+       [conversation_completeness] Turn 0: user prompt must start with '[Thinking]'
+       [conversation_completeness] Turn 2: user prompt must start with '[No Thinking]'
+       [conversation_completeness] Turn 4: user prompt must start with '[No Thinking]'
+       [richness_and_complexity] CoT too short: 5782 chars (min 9000)
+       [richness_and_complexity] Answer too short: 208 chars (min 10000)
+       [richness_and_complexity] Code too short: ~1 lines (min 300)
+       [structured_answer_format] Missing copyright header: 'Copyright by 4QDR.AI'
+       [structured_answer_format] Too few test_criteria: 0 (min 5)
+       [structured_answer_format] Too few formal_requirements: 0 (min 5)
+       [cot_structure] Missing CoT parent headers: 1., 2., 3., 4., 5., 6., 7., 8.
+       [cot_structure] Missing 31 CoT sub-elements: 1.1, 1.2, 2.1, 2.2, 2.3...
+  PASS Study_European-AI-Standards_FINAL_Turn6_Task2.json: CoT=17394, Ans=31136, Code=441
+  FAIL Study_European-AI-Standards_FINAL_Turn7_Task1.json: CoT=42, Ans=728, Code=5
+       [richness_and_complexity] CoT too short: 42 chars (min 9000)
+       [richness_and_complexity] Answer too short: 728 chars (min 10000)
+       [richness_and_complexity] Code too short: ~5 lines (min 300)
+       [structured_answer_format] Missing copyright header: 'Copyright by 4QDR.AI'
+       [structured_answer_format] Too few formal_requirements: 1 (min 5)
+       [cot_structure] Missing CoT parent headers: 1., 2., 3., 4., 5., 6., 7., 8.
+       [cot_structure] Missing 31 CoT sub-elements: 1.1, 1.2, 2.1, 2.2, 2.3...
+       [followup_quality] Turn 2: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write a 2-3 sentence technical inquiry...')
+       [followup_quality] Turn 3: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write the first technical response here...')
+       [followup_quality] Turn 4: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write another 2-3 sentence...')
+       [followup_quality] Turn 5: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write the final technical response here...')
+  FAIL Study_European-AI-Standards_FINAL_Turn7_Task2.json: CoT=39, Ans=21947, Code=295
+       [conversation_completeness] Turn 4: follow-up user prompt too short (26 chars, min 100)
+       [richness_and_complexity] CoT too short: 39 chars (min 9000)
+       [richness_and_complexity] Code too short: ~295 lines (min 300)
+       [structured_answer_format] Too few test_criteria: 0 (min 5)
+       [cot_structure] Missing CoT parent headers: 1., 2., 3., 4., 5., 6., 7., 8.
+       [cot_structure] Missing 31 CoT sub-elements: 1.1, 1.2, 2.1, 2.2, 2.3...
+  FAIL Study_European-AI-Standards_FINAL_Turn8_Task1.json: CoT=664, Ans=45159, Code=578
+       [richness_and_complexity] CoT too short: 664 chars (min 9000)
+       [cot_structure] Missing CoT parent headers: 2., 3., 4., 5., 6., 7., 8.
+       [cot_structure] Missing 30 CoT sub-elements: 1.2, 2.1, 2.2, 2.3, 2.4...
+  FAIL Study_European-AI-Standards_FINAL_Turn8_Task2.json: CoT=24565, Ans=38100, Code=380
+       [cot_structure] Missing CoT sub-elements: 5.2
+       [followup_quality] Turn 3: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write the first technical response here...')
+       [followup_quality] Turn 5: instruction echo detected ù model echoed prompt template instead of generating content (matched: '(Write the final technical response here...')
+
+--- Thinking Files (17) ---
+               OK Study_European-AI-Standards_FINAL_Turn1_Task1.txt: 969 chars
+   EMPTY/SENTINEL Study_European-AI-Standards_FINAL_Turn1_Task2.txt: 21 chars
+   EMPTY/SENTINEL Study_European-AI-Standards_FINAL_Turn2_Task1.txt: 21 chars
+               OK Study_European-AI-Standards_FINAL_Turn2_Task2.txt: 5401 chars
+               OK Study_European-AI-Standards_FINAL_Turn3_Task1.txt: 6317 chars
+               OK Study_European-AI-Standards_FINAL_Turn3_Task2.txt: 5609 chars
+   EMPTY/SENTINEL Study_European-AI-Standards_FINAL_Turn4_Task1.txt: 21 chars
+   EMPTY/SENTINEL Study_European-AI-Standards_FINAL_Turn4_Task2.txt: 21 chars
+               OK Study_European-AI-Standards_FINAL_Turn5_Task1.txt: 1871 chars
+   EMPTY/SENTINEL Study_European-AI-Standards_FINAL_Turn5_Task2.txt: 21 chars
+               OK Study_European-AI-Standards_FINAL_Turn6_Task1.txt: 4026 chars
+               OK Study_European-AI-Standards_FINAL_Turn6_Task1_FollowupRepairPrompt.txt.txt: 5765 chars
+               OK Study_European-AI-Standards_FINAL_Turn6_Task2.txt: 300 chars
+   EMPTY/SENTINEL Study_European-AI-Standards_FINAL_Turn7_Task1.txt: 21 chars
+               OK Study_European-AI-Standards_FINAL_Turn7_Task2.txt: 4981 chars
+   EMPTY/SENTINEL Study_European-AI-Standards_FINAL_Turn8_Task1.txt: 21 chars
+               OK Study_European-AI-Standards_FINAL_Turn8_Task2.txt: 6019 chars
+
+--- Summary: 7 PASS, 10 FAIL out of 17 ---

@@ -1,0 +1,265 @@
+================================================================================
+STUDY EUROPEAN AI STANDARDS - COMPREHENSIVE ANALYSIS
+================================================================================
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn1_Task1
+────────────────────────────────────────────────────────────
+  Thinking: ✅ OK (969 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 24576 chars | CoT: 14124 chars
+    Code: 7 lines | Reqs: 5 | Tests: 5
+    Turn 3: 395 chars
+    Turn 4: 2482 chars
+    Turn 5: 465 chars
+    Turn 6: 2536 chars
+  ISSUES:
+    ❌ CODE_SHORT: 7 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn1_Task2
+────────────────────────────────────────────────────────────
+  Thinking: ❌ NO_THINKING (0 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 30173 chars | CoT: 17558 chars
+    Code: 9 lines | Reqs: 6 | Tests: 5
+    Turn 3: 439 chars
+    Turn 4: 909 chars
+    Turn 5: 369 chars
+    Turn 6: 1057 chars
+  ISSUES:
+    ❌ CODE_SHORT: 9 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn2_Task1
+────────────────────────────────────────────────────────────
+  Thinking: ❌ NO_THINKING (0 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 40540 chars | CoT: 14402 chars
+    Code: 4 lines | Reqs: 5 | Tests: 6
+    Turn 3: 433 chars
+    Turn 4: 2251 chars
+    Turn 5: 427 chars
+    Turn 6: 2039 chars
+  ISSUES:
+    ❌ CODE_SHORT: 4 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn2_Task2
+────────────────────────────────────────────────────────────
+  Thinking: ✅ OK (5401 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 32585 chars | CoT: 10848 chars
+    Code: 2 lines | Reqs: 5 | Tests: 5
+    Turn 3: 254 chars
+    Turn 4: 1168 chars
+    Turn 5: 311 chars
+    Turn 6: 1527 chars
+  ISSUES:
+    ❌ CODE_SHORT: 2 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn3_Task1
+────────────────────────────────────────────────────────────
+  Thinking: ✅ OK (6317 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 18978 chars | CoT: 8074 chars
+    Code: 191 lines | Reqs: 5 | Tests: 5
+    Turn 3: 642 chars
+    Turn 4: 1527 chars
+    Turn 5: 798 chars
+    Turn 6: 1876 chars
+  ISSUES:
+    ❌ COT_SHORT: 8057 chars (need 9000+)
+    ❌ CODE_SHORT: 191 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn3_Task2
+────────────────────────────────────────────────────────────
+  Thinking: ✅ OK (5609 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 37540 chars | CoT: 13916 chars
+    Code: 486 lines | Reqs: 5 | Tests: 5
+    Turn 3: 105 chars
+    Turn 4: 87 chars
+    Turn 5: 117 chars
+    Turn 6: 374 chars
+  ISSUES:
+    ❌ TURN3_PLACEHOLDER: '(Write a'
+    ❌ TURN5_PLACEHOLDER: '(Write a'
+    ❌ TURN6_PLACEHOLDER: 'BANNED VOCABULARY'
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn4_Task1
+────────────────────────────────────────────────────────────
+  Thinking: ❌ NO_THINKING (0 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 37276 chars | CoT: 13094 chars
+    Code: 2 lines | Reqs: 6 | Tests: 9
+    Turn 3: 305 chars
+    Turn 4: 1042 chars
+    Turn 5: 243 chars
+    Turn 6: 985 chars
+  ISSUES:
+    ❌ CODE_SHORT: 2 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn4_Task2
+────────────────────────────────────────────────────────────
+  Thinking: ❌ NO_THINKING (0 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 56072 chars | CoT: 13429 chars
+    Code: 22 lines | Reqs: 6 | Tests: 7
+    Turn 3: 205 chars
+    Turn 4: 997 chars
+    Turn 5: 308 chars
+    Turn 6: 1312 chars
+  ISSUES:
+    ❌ CODE_SHORT: 22 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn5_Task1
+────────────────────────────────────────────────────────────
+  Thinking: ✅ OK (1825 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 29812 chars | CoT: 12707 chars
+    Code: 9 lines | Reqs: 5 | Tests: 5
+    Turn 3: 541 chars
+    Turn 4: 1868 chars
+    Turn 5: 589 chars
+    Turn 6: 2340 chars
+  ISSUES:
+    ❌ CODE_SHORT: 9 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn5_Task2
+────────────────────────────────────────────────────────────
+  Thinking: ❌ NO_THINKING (0 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 40627 chars | CoT: 12129 chars
+    Code: 11 lines | Reqs: 5 | Tests: 6
+    Turn 3: 889 chars
+    Turn 4: 4604 chars
+    Turn 5: 1099 chars
+    Turn 6: 4659 chars
+  ISSUES:
+    ❌ CODE_SHORT: 11 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn6_Task1
+────────────────────────────────────────────────────────────
+  Thinking: ✅ OK (4026 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 40381 chars | CoT: 457 chars
+    Code: 14 lines | Reqs: 5 | Tests: 5
+    Turn 3: 105 chars
+    Turn 4: 87 chars
+    Turn 5: 117 chars
+    Turn 6: 374 chars
+  ISSUES:
+    ❌ COT_SHORT: 440 chars (need 9000+)
+    ❌ CODE_SHORT: 14 lines (need 300+)
+    ❌ TURN3_PLACEHOLDER: '(Write a'
+    ❌ TURN5_PLACEHOLDER: '(Write a'
+    ❌ TURN6_PLACEHOLDER: 'BANNED VOCABULARY'
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn6_Task2
+────────────────────────────────────────────────────────────
+  Thinking: ✅ OK (300 chars)
+  JSON: ✅ 6 turns
+    Answer: 31136 chars | CoT: 17394 chars
+    Code: 441 lines | Reqs: 6 | Tests: 5
+    Turn 3: 374 chars
+    Turn 4: 2630 chars
+    Turn 5: 570 chars
+    Turn 6: 5890 chars
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn7_Task1
+────────────────────────────────────────────────────────────
+  Thinking: ❌ NO_THINKING (0 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 728 chars | CoT: 42 chars
+    Code: 5 lines | Reqs: 1 | Tests: 5
+    Turn 3: 105 chars
+    Turn 4: 87 chars
+    Turn 5: 117 chars
+    Turn 6: 374 chars
+  ISSUES:
+    ❌ TURN1_TOO_SHORT: 40 chars
+    ❌ COT_SHORT: 25 chars (need 9000+)
+    ❌ CODE_SHORT: 5 lines (need 300+)
+    ❌ FEW_REQUIREMENTS: 1
+    ❌ TURN3_PLACEHOLDER: '(Write a'
+    ❌ TURN5_PLACEHOLDER: '(Write a'
+    ❌ TURN6_PLACEHOLDER: 'BANNED VOCABULARY'
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn7_Task2
+────────────────────────────────────────────────────────────
+  Thinking: ✅ OK (4981 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 21947 chars | CoT: 39 chars
+    Code: 27 lines | Reqs: 5 | Tests: 0
+    Turn 3: 628 chars
+    Turn 4: 17551 chars
+    Turn 5: 26 chars
+    Turn 6: 164 chars
+  ISSUES:
+    ❌ COT_SHORT: 22 chars (need 9000+)
+    ❌ CODE_SHORT: 27 lines (need 300+)
+    ❌ FEW_TESTS: 0
+    ❌ TURN4_WORDSALAD: 'logical' appears 382x in 2044 words
+    ❌ TURN5_TOO_SHORT: 26 chars
+    ❌ TURN5_PLACEHOLDER: 'Follow up'
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn8_Task1
+────────────────────────────────────────────────────────────
+  Thinking: ❌ NO_THINKING (0 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 45159 chars | CoT: 664 chars
+    Code: 8 lines | Reqs: 5 | Tests: 5
+    Turn 3: 599 chars
+    Turn 4: 11274 chars
+    Turn 5: 847 chars
+    Turn 6: 11547 chars
+  ISSUES:
+    ❌ COT_SHORT: 643 chars (need 9000+)
+    ❌ CODE_SHORT: 8 lines (need 300+)
+
+────────────────────────────────────────────────────────────
+  Study_European-AI-Standards_FINAL_Turn8_Task2
+────────────────────────────────────────────────────────────
+  Thinking: ✅ OK (6019 chars)
+  JSON: ⚠️ 6 turns
+    Answer: 38100 chars | CoT: 24565 chars
+    Code: 2 lines | Reqs: 6 | Tests: 6
+    Turn 3: 281 chars
+    Turn 4: 2483 chars
+    Turn 5: 357 chars
+    Turn 6: 2665 chars
+  ISSUES:
+    ❌ CODE_SHORT: 2 lines (need 300+)
+
+
+================================================================================
+TAXONOMY THREAT MODELING - THINKING FILE CHECK
+================================================================================
+  ✅ taxonomy-based_threat_modeling_Turn1_Task1: OK (1174 chars)
+  ✅ taxonomy-based_threat_modeling_Turn1_Task2: OK (681 chars)
+  ✅ taxonomy-based_threat_modeling_Turn2_Task1: OK (2178 chars)
+  ✅ taxonomy-based_threat_modeling_Turn2_Task2: OK (1271 chars)
+  ✅ taxonomy-based_threat_modeling_Turn3_Task1: OK (590 chars)
+  ✅ taxonomy-based_threat_modeling_Turn3_Task2: OK (1235 chars)
+  ✅ taxonomy-based_threat_modeling_Turn4_Task1: OK (4491 chars)
+  ✅ taxonomy-based_threat_modeling_Turn4_Task2: OK (1415 chars)
+  ✅ taxonomy-based_threat_modeling_Turn5_Task1: OK (2293 chars)
+  ✅ taxonomy-based_threat_modeling_Turn5_Task2: OK (1577 chars)
+  ✅ taxonomy-based_threat_modeling_Turn6_Task1: OK (1037 chars)
+  ✅ taxonomy-based_threat_modeling_Turn6_Task2: OK (865 chars)
+  ✅ taxonomy-based_threat_modeling_Turn7_Task1: OK (1410 chars)
+  ✅ taxonomy-based_threat_modeling_Turn7_Task2: OK (705 chars)
+  ✅ taxonomy-based_threat_modeling_Turn8_Task1: OK (2006 chars)
+  ✅ taxonomy-based_threat_modeling_Turn8_Task2: OK (1061 chars)

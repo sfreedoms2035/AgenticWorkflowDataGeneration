@@ -40,27 +40,27 @@ For every PDF, the pipeline loops through exactly 8 turns, generating 2 tasks pe
 
 | Turn | Task 1 | Task 2 |
 |------|--------|--------|
-| 1 | C++, Diff 95, Reverse Eng | Rust, Diff 90, Practical |
-| 2 | Python, Diff 88, Improve | C++, Diff 98, Benchmark |
-| 3 | Rust, Diff 94, Critique | Python, Diff 85, Theory |
-| 4 | C++, Diff 96, Reverse Eng | C++, Diff 94, Benchmark |
-| 5 | Python, Diff 86, Practical | Rust, Diff 91, Threat |
-| 6 | C++, Diff 90, Stress | Rust, Diff 89, Improve |
-| 7 | C++, Diff 84, Practical | Python, Diff 93, Theory |
-| 8 | Python, Diff 82, Reverse Eng | C++, Diff 99, Critique |
+| 1 | C++, Diff 95, Reverse Eng, Senior Software Architect | Rust, Diff 90, Practical, Senior Software Architect |
+| 2 | Python, Diff 88, Improve, Senior Senior System Engineer | C++, Diff 98, Benchmark, Senior System Engineer |
+| 3 | Rust, Diff 94, Critique, Senior Safety Manager | Python, Diff 85, Theory, Senior Safety Manager |
+| 4 | C++, Diff 96, Reverse Eng, Senior Validation Engineer | C++, Diff 94, Benchmark, Senior Validation Engineer |
+| 5 | Python, Diff 86, Practical, Senior Integration Engineer | Rust, Diff 91, Threat, Senior Integration Engineer |
+| 6 | C++, Diff 90, Stress, Senior Project Manager | Rust, Diff 89, Improve, Senior Project Manager |
+| 7 | C++, Diff 84, Practical, Senior DevOps Engineer | Python, Diff 93, Theory, Senior DevOps Engineer |
+| 8 | Python, Diff 82, Reverse Eng, Senior Requirements Engineering Manager | C++, Diff 99, Critique, Senior Requirements Engineering Manager |
 
 ### MODE B: REGULATORY & STANDARDS DOCUMENTS
 
 | Turn | Task 1 | Task 2 |
 |------|--------|--------|
-| 1 | C++, Diff 95, Formalize | Python, Diff 90, Validate |
-| 2 | Rust, Diff 88, Liability | C++, Diff 98, Traceability |
-| 3 | Python, Diff 94, Loophole | Python, Diff 85, Ambiguity |
-| 4 | Rust, Diff 96, Formalize | C++, Diff 94, Validate |
-| 5 | Python, Diff 86, Audit | Rust, Diff 91, Formalize |
-| 6 | C++, Diff 90, Stress | Rust, Diff 89, Enforce |
-| 7 | C++, Diff 84, Harmonize | Python, Diff 93, Liability |
-| 8 | Python, Diff 82, Validate | C++, Diff 99, Gap Analysis |
+| 1 | C++, Diff 95, Formalize, Senior Software Architect | Python, Diff 90, Validate, Senior Software Architect |
+| 2 | Rust, Diff 88, Liability, Senior Senior System Engineer | C++, Diff 98, Traceability, Senior Senior System Engineer |
+| 3 | Python, Diff 94, Loophole, Senior Safety Manager | Python, Diff 85, Ambiguity, Senior Safety Manager |
+| 4 | Rust, Diff 96, Formalize, Senior Validation Engineer | C++, Diff 94, Validate, Senior Validation Engineer |
+| 5 | Python, Diff 86, Audit, Senior Integration Engineer | Rust, Diff 91, Formalize, Senior Integration Engineer |
+| 6 | C++, Diff 90, Stress, Senior Project Manager | Rust, Diff 89, Enforce, Senior Project Manager |
+| 7 | C++, Diff 84, Harmonize, Senior DevOps Engineer | Python, Diff 93, Liability, Senior DevOps Engineer |
+| 8 | Python, Diff 82, Validate, Senior Requirements Engineering Manager | C++, Diff 99, Gap Analysis, Senior Requirements Engineering Manager |
 
 ## 5. AUTOMATED PIPELINE FLOW
 
@@ -100,8 +100,8 @@ for each PDF in Input/:
 
 * Max 3 Gemini attempts per task
 * Between each attempt, `decide_repair_strategy()` classifies failures:
-  - **Locally fixable** (JSON parse, merged content, missing tags, turn padding) → `auto_repair.py`
-  - **Needs regeneration** (volume, CoT structure, immersion, test count) → targeted Gemini re-prompt
+  * **Locally fixable** (JSON parse, merged content, missing tags, turn padding) → `auto_repair.py`
+  * **Needs regeneration** (volume, CoT structure, immersion, test count) → targeted Gemini re-prompt
 * Pipeline state is persisted to `Output/progress.json` after every task
 * On restart with `--resume`, the pipeline detects the last successful task and continues
 * Failed tasks are logged with attempt count, repair type, and elapsed time for manual review

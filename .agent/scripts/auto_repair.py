@@ -241,7 +241,7 @@ def repair_metadata(task, filename):
         if key not in task or not task[key] or task[key] == "..." or task[key] == "{pdf_name}":
             if key == "training_data_id": task[key] = f"TD-CODING-{context['doc']}-T{context['turn']}t{context['task']}-{today}-v1.0"
             elif key == "prompt_version": task[key] = "CodingTasks_v1.0"
-            elif key == "model_used_generation": task[key] = "Gemini-3.1-Pro-Ultra"
+            elif key == "model_used_generation": task[key] = "Gemini-3.1-pro"
             elif key == "knowledge_source_date": task[key] = "2024-03-30"
             elif key == "document": task[key] = context['doc']
             elif key == "task_type": task[key] = "coding_task"
@@ -337,6 +337,99 @@ def repair_cot_subelements(task):
     return fixed
 
 
+def repair_missing_cot_numbers(task):
+    """Detect when Gemini outputs the exact CoT title but forgets the numeric prefix (e.g., '1. ')."""
+    fixed = False
+    
+    COT_TITLES_TO_NUMBERS = {
+        # Parent Headers
+        "Initial Query Analysis & Scoping": "1.",
+        "Assumptions & Context Setting": "2.",
+        "High-Level Plan Formulation": "3.",
+        "Solution Scenario Exploration": "4.",
+        "Detailed Step-by-Step Execution & Reflection": "5.",
+        "Comparative Analysis & Synthesis": "6.",
+        "Final Solution Formulation": "7.",
+        "Meta-Commentary & Confidence Score": "8.",
+        
+        # Sub-elements
+        "Deconstruct the Request": "1.1.",
+        "Initial Knowledge & Constraint Check": "1.2.",
+        "Interpretation of Ambiguity": "2.1.",
+        "Assumed User Context": "2.2.",
+        "Scope Definition": "2.3.",
+        "Data Assumptions": "2.4.",
+        "Reflective Assumption Check": "2.5.",
+        "Explore Solution Scenarios": "3.1.",
+        "Detailed Execution with Iterative Refinement": "3.2.",
+        "Self-Critique and Correction": "3.3.",
+        "Comparative Analysis Strategy": "3.4.",
+        "Synthesis & Finalization": "3.5.",
+        "Formal Requirements Extraction": "3.6.",
+        "Scenario A (Quick & Direct)": "4.1.",
+        "Scenario B (Robust & Scalable)": "4.2.",
+        "Scenario C (Balanced Hybrid)": "4.3.",
+        "First Pass Execution": "5.1.",
+        "Deep Analysis & Failure Modes": "5.2.",
+        "Trigger 1 (Verification)": "5.3.",
+        "Trigger 2 (Adversarial)": "5.4.",
+        "Refinement Strategy (Version 2.0)": "5.5.",
+        "Comparison Matrix": "6.1.",
+        "Evaluation of Solution Combinations": "6.2.",
+        "Selection Rationale": "6.3.",
+        "Executive Summary": "7.1.",
+        "Detailed Recommended Solution": "7.2.",
+        "Implementation Caveats & Next Steps": "7.3.",
+        "Final Confidence Score": "8.1.",
+        "Rationale for Confidence": "8.2.",
+        "Limitations of This Analysis": "8.3.",
+        "Alternative Viewpoints Not Explored": "8.4.",
+    }
+    
+    for conv in task.get("conversations", []):
+        if conv.get("role") == "assistant":
+            reasoning = conv.get("reasoning", "")
+            if not reasoning: continue
+            
+            original_reasoning = reasoning
+            
+            # Clean up typo where Gemini outputs "n1. ", "n2. " instead of "\n1. ", "\n2. "
+            reasoning = re.sub(r'(?:^|[\n\r])n(\d+\.)\s', r'\n\1 ', reasoning)
+            
+            for title, prefix in COT_TITLES_TO_NUMBERS.items():
+                if title not in reasoning:
+                    continue
+                
+                escape_title = re.escape(title)
+                
+                # We replace exactly the title if it is NOT preceded by the correct number.
+                # Because lookbehinds must be fixed-width, we check for a space or a dot 
+                # rather than writing a complex variable length lookbehind.
+                # The safest way is to find the title, and if the preceding characters 
+                # don't match the prefix, we replace it.
+                
+                # Regex match title, capture what's before it.
+                # If what's before it is not the prefix, we replace it.
+                pattern = rf'([^\d\.]\s*|^|\*)({escape_title})'
+                
+                def repl(m):
+                    before = m.group(1)
+                    # If it already seems to have a number before it (which wasn't caught by the [^\d\.] check)
+                    # or if it's already perfectly prefixed, we leave it.
+                    # Actually, [^\d\.] ensures no number is directly preceding it.
+                    return f"{before}{prefix} {m.group(2)}"
+                
+                new_reasoning = re.sub(pattern, repl, reasoning, count=1)
+                if new_reasoning != reasoning:
+                    reasoning = new_reasoning
+            
+            if reasoning != original_reasoning:
+                conv["reasoning"] = reasoning
+                fixed = True
+
+    return fixed
+
+
 def repair_placeholders(task):
     """Detect and replace common extraction placeholders with generic technical fillers if they leaked."""
     fixed = False
@@ -408,6 +501,7 @@ def auto_repair(filepath):
     if repair_cot_tags(task): repair_log["fixes_applied"].append("cot_tags_wrapped")
     if repair_raw_src_prefixes(task): repair_log["fixes_applied"].append("stripped_raw_src_prefixes")
     if repair_cot_subelements(task): repair_log["fixes_applied"].append("cot_headers_synthesized")
+    if repair_missing_cot_numbers(task): repair_log["fixes_applied"].append("cot_numbers_prepended")
     if repair_placeholders(task): repair_log["fixes_applied"].append("placeholders_removed")
     if repair_log["fixes_applied"]:
         data[0] = task

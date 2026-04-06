@@ -127,6 +127,87 @@ def clean_repetitive_text(text):
     return '\n\n'.join(cleaned)
 
 
+# ── Canvas Detection ─────────────────────────────────────────────────────────
+CANVAS_DOM_SELECTORS = [
+    'user-facing-canvas',
+    'immersive-canvas-panel',
+    'div.canvas-container',
+    'code-block-canvas',
+    '[data-test-id*="canvas"]',
+    'div[class*="immersive"]',
+]
+
+CANVAS_TEXT_SIGNALS = [
+    'canvas', 'immersive', 'open in canvas', 'in canvas öffnen',
+]
+
+
+def detect_canvas_active(page):
+    """Return True if Gemini has activated Canvas/Immersive mode."""
+    try:
+        # 1. Check for Canvas DOM elements
+        for sel in CANVAS_DOM_SELECTORS:
+            if page.locator(sel).count() > 0:
+                log(f"  [Canvas] Canvas DOM element detected: {sel}")
+                return True
+
+        # 2. Check for Canvas text signals in buttons/chips
+        result = page.evaluate("""() => {
+            const allText = document.body.innerText.toLowerCase();
+            const signals = ['open in canvas', 'in canvas öffnen', 'immersive-canvas', 'canvas panel'];
+            for (const sig of signals) {
+                if (allText.includes(sig)) return sig;
+            }
+            // Also check for canvas-specific element attributes
+            const canvasEls = document.querySelectorAll('[class*="canvas"], [data-test-id*="canvas"]');
+            if (canvasEls.length > 0) return 'canvas-element-found';
+            return null;
+        }""")
+        if result:
+            log(f"  [Canvas] Canvas signal detected: {result}")
+            return True
+    except Exception as e:
+        log(f"  [Canvas] Detection check failed (non-fatal): {e}")
+    return False
+
+
+def escape_canvas(page):
+    """Attempt to close Canvas and return to normal chat. Returns True if successful."""
+    log("  [Canvas] Attempting to escape Canvas mode...")
+    try:
+        # Try clicking X/close buttons on canvas panels
+        close_selectors = [
+            'button[aria-label*="close"]',
+            'button[aria-label*="Close"]',
+            'button[aria-label*="Schließen"]',
+            'button[data-test-id*="close"]',
+            'button[class*="close-button"]',
+            'button[class*="dismiss"]',
+        ]
+        for sel in close_selectors:
+            btn = page.locator(sel)
+            if btn.count() > 0:
+                try:
+                    btn.first.click(timeout=2000)
+                    page.wait_for_timeout(500)
+                    if not detect_canvas_active(page):
+                        log("  [Canvas] Canvas closed via close button.")
+                        return True
+                except Exception:
+                    pass
+
+        # Fallback: navigate to a new chat
+        log("  [Canvas] Close button failed — navigating to fresh chat...")
+        page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
+        page.wait_for_timeout(2000)
+        if not detect_canvas_active(page):
+            log("  [Canvas] Navigated to fresh chat — Canvas cleared.")
+            return True
+    except Exception as e:
+        log(f"  [Canvas] Escape failed: {e}")
+    return False
+
+
 def heuristic_extract_blocks(text):
     """Fallback extraction using keywords if !!!!! tags are missing or broken."""
     blocks = {}
@@ -145,10 +226,10 @@ def heuristic_extract_blocks(text):
     # Attempt to extract turns by narrative markers if blocks are missing
     for i in range(1, 7):
         role = "USER" if i % 2 != 0 else "ASSISTANT"
-        p_marker = rf'Turn {i} \({role}|Prompt|Response\)'
+        p_marker = rf'Turn {i}\s*(?:\({role}\)|- {role}|Prompt|Response)'
         # Look for these specifically in the raw text
-        m = re.search(rf'{p_marker}.*?\n(.*?)(?=Turn {i+1}|!!!!!|\s*$)', text, re.DOTALL | re.IGNORECASE)
-        if m:
+        m = re.search(rf'(?:{p_marker}).*?\n(.*?)(?=Turn {i+1}|!!!!!|\s*$)', text, re.DOTALL | re.IGNORECASE)
+        if m and m.group(1):
             block_name = f"TURN-{i}-USER" if i % 2 != 0 else f"TURN-{i}-ASSISTANT"
             blocks[block_name] = m.group(1).strip()
             log(f"  [Heuristic] Recovered {block_name}")
@@ -344,7 +425,6 @@ def run_gemini(pdf_path, prompt_file):
             extracted_text = ""
             for page in pdf_data.get('pages', []):
                 extracted_text += page.get('text', '') + "\n\n"
-
             with open(cache_path, 'w', encoding='utf-8') as f:
                 f.write(extracted_text)
             log(f"Extracted {len(extracted_text)} chars, cached to .txt")
@@ -356,10 +436,10 @@ def run_gemini(pdf_path, prompt_file):
     code_block_directive = """
 ---
 CRITICAL OUTPUT FORMAT DIRECTIVE:
-You MUST wrap your ENTIRE JSON output between the exact literal tags !!!!!START-JSON!!!!! and !!!!!END-JSON!!!!!.
-Do NOT use ANY markdown code blocks, backticks, or ` ```json `. That triggers interactive tools which are BANNED.
-CRITICAL RULE: ALL code, text, and paragraphs inside every JSON string value MUST use explicit literal escaped newlines (\\n) and escaped double quotes (\\") to conform to the strict JSON specification. DO NOT use raw physical newlines inside the JSON strings.
-IMPORTANT: Prioritize COMPLETING the entire JSON structure over adding more detail. A truncated JSON is worse than a slightly shorter but complete one.
+You MUST output your response using granular blocks delimited by !!!!!BLOCK-NAME!!!!! tags (e.g., !!!!!METADATA!!!!!, !!!!!REASONING!!!!!, !!!!!TURN-2-ASSISTANT-DATA!!!!!, !!!!!CODE-PART-1!!!!!).
+You MAY use markdown fenced code blocks (e.g. ```json```, ```cpp```, ```python```, ```rust```) INSIDE the !!!!!BLOCK-NAME!!!!! delimiters for readability.
+CRITICAL RULE: ALL code, text, and paragraphs inside every block MUST use explicit literal escaped newlines (\\n) and escaped double quotes (\\") to conform to the strict JSON specification. DO NOT use raw physical newlines inside the blocks.
+IMPORTANT: Prioritize COMPLETING the entire block structure over adding more detail. A truncated response is worse than a slightly shorter but complete one.
 CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding interface. Output your answer purely as plain text strictly inside the standard chat window. DO NOT trigger side-by-side or interactive execution environments.
 """
 
@@ -392,7 +472,9 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
 
         # --- AUTO-DISMISS: Activity/Consent Pages ---
         def ensure_on_gemini():
-            """Navigate past any Google redirects. Returns True when on Gemini."""
+            """Navigate to the Gemini chat page (/app), handling any redirects or wrong pages.
+            Returns True when confirmed on the active chat page (has rich-textarea).
+            """
             for attempt in range(5):
                 page.wait_for_timeout(1500)
                 current_url = page.url
@@ -402,15 +484,91 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                     if tab != page and ("myactivity" in tab.url or "consent" in tab.url or "accounts.google" in tab.url):
                         tab.close()
 
-                if "gemini.google.com" in current_url:
-                    return True
+                # Dismiss any open context menus first (Escape key)
+                try:
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(300)
+                except Exception:
+                    pass
 
-                log(f"Redirect detected: {current_url[:60]}... navigating back")
+                # Check if we are on the CHAT page specifically (not /search, /history, etc.)
+                is_chat_page = (
+                    "gemini.google.com" in current_url and
+                    "/search" not in current_url and
+                    "/history" not in current_url and
+                    "myactivity" not in current_url and
+                    "consent" not in current_url
+                )
+
+                if is_chat_page:
+                    # Double-check: if rich-textarea is present, we are definitely on chat
+                    try:
+                        if page.locator('rich-textarea').count() > 0:
+                            return True
+                    except Exception:
+                        pass
+                    # Page looks like /app but no textarea yet — wait a bit more
+                    page.wait_for_timeout(1000)
+                    try:
+                        if page.locator('rich-textarea').count() > 0:
+                            return True
+                    except Exception:
+                        pass
+
+                log(f"Not on Gemini chat (url={current_url[:70]}) — navigating to /app")
                 page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
+                page.wait_for_timeout(2000)
 
-            return "gemini.google.com" in page.url
+            return False
 
         ensure_on_gemini()
+
+        # --- FORCE NEW CHAT TO PREVENT STATE BLEED ---
+        log("Forcing 'New Chat' to guarantee clean state...")
+        try:
+            # Check if we're on an existing chat (URL contains /app/ followed by a chat ID)
+            current_url = page.url
+            import re as _re
+            is_existing_chat = bool(_re.search(r'/app/[a-f0-9]{8,}', current_url))
+            
+            if is_existing_chat:
+                log(f"  ⚠️ Landed on existing chat: {current_url[:80]}")
+                
+                # Try clicking 'New Chat' / 'Neuer Chat' — it's an <a> link, not a <button>
+                new_chat_selectors = [
+                    'a[data-test-id="new-chat-button"]',
+                    'a:has-text("Neuer Chat")',
+                    'a:has-text("New chat")',
+                    'a[href="/app"]',
+                    'button:has-text("Neuer Chat")',
+                    'button:has-text("New chat")',
+                ]
+                clicked = False
+                for sel in new_chat_selectors:
+                    btn = page.locator(sel)
+                    if btn.count() > 0:
+                        try:
+                            btn.first.click(timeout=3000)
+                            page.wait_for_timeout(2000)
+                            log(f"  ✅ Clicked 'New Chat' via: {sel}")
+                            clicked = True
+                            break
+                        except Exception:
+                            continue
+                
+                # Verify we actually moved to a clean /app — if not, force navigate
+                new_url = page.url
+                if _re.search(r'/app/[a-f0-9]{8,}', new_url):
+                    log(f"  ⚠️ Still on old chat after click. Force-navigating to /app...")
+                    page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
+                    page.wait_for_timeout(3000)
+                    log(f"  ✅ Navigated to clean /app")
+            else:
+                log(f"  ✅ Already on clean chat: {current_url[:80]}")
+        except Exception as e:
+            log(f"  ⚠️ New Chat logic error: {e}. Force-navigating...")
+            page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
+            page.wait_for_timeout(3000)
 
         # Wait for chat input — with escalating timeouts
         chat_ready = False
@@ -434,8 +592,10 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                 browser.close()
                 return False
 
-        # --- ALWAYS SELECT PRO MODEL ---
+
+        # --- ALWAYS SELECT PRO MODEL + READ ACTUAL MODEL NAME ---
         log("Selecting Gemini Pro model...")
+        selected_model_name = "Gemini-3.1-pro"  # default fallback
         try:
             # Click the model dropdown
             dropdown_selectors = [
@@ -458,37 +618,83 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
             if dropdown_clicked:
                 # Select Pro option — try multiple patterns
                 pro_patterns = [
-                    'text="3.1 Pro"',
-                    'span:has-text("3.1 Pro")',
-                    'div:has-text("3.1 Pro")',
-                    'text="2.5 Pro"',
-                    'span:has-text("2.5 Pro")',
-                    'div:has-text("2.5 Pro")',
-                    'text="Pro"',
-                    'span:has-text("Pro")',
-                    'div[role="option"]:has-text("Pro")',
-                    'li:has-text("Pro")',
-                    'div:has-text("Pro")',
+                    ('text="3.1 Pro"',      "Gemini-3.1-pro"),
+                    ('span:has-text("3.1 Pro")', "Gemini-3.1-pro"),
+                    ('div:has-text("3.1 Pro")',  "Gemini-3.1-pro"),
+                    ('text="2.5 Pro"',      "Gemini-2.5-pro"),
+                    ('span:has-text("2.5 Pro")', "Gemini-2.5-pro"),
+                    ('div:has-text("2.5 Pro")',  "Gemini-2.5-pro"),
+                    ('text="Pro"',          "Gemini-pro"),
+                    ('span:has-text("Pro")', "Gemini-pro"),
+                    ('div[role="option"]:has-text("Pro")', "Gemini-pro"),
+                    ('li:has-text("Pro")',   "Gemini-pro"),
+                    ('div:has-text("Pro")',  "Gemini-pro"),
                 ]
                 selected = False
-                for ps in pro_patterns:
+                for ps, model_label in pro_patterns:
                     try:
                         opt = page.locator(ps).last
                         if opt.is_visible(timeout=1000):
+                            # Try to capture the actual text before clicking
+                            try:
+                                opt_text = opt.inner_text(timeout=500).strip()
+                                if opt_text:
+                                    # Normalize: "Gemini 3.1 Pro" → "Gemini-3.1-pro"
+                                    selected_model_name = re.sub(r'\s+', '-', opt_text.lower())
+                                    selected_model_name = re.sub(r'[^a-z0-9\.\-]', '', selected_model_name)
+                                    selected_model_name = "Gemini-" + selected_model_name.lstrip("gemini-") if not selected_model_name.startswith("gemini") else selected_model_name
+                                    # Capitalize first letter
+                                    selected_model_name = selected_model_name[0].upper() + selected_model_name[1:]
+                                    log(f"  Captured model text: '{opt_text}' → normalized: '{selected_model_name}'")
+                                else:
+                                    selected_model_name = model_label
+                            except Exception:
+                                selected_model_name = model_label
                             opt.click(timeout=2000)
-                            log(f"  ✅ Selected Pro model via: {ps}")
+                            log(f"  ✅ Selected model via: {ps} → '{selected_model_name}'")
                             selected = True
                             break
                     except Exception:
                         continue
 
                 if not selected:
+                    # Try to read existing selected model from button label
+                    try:
+                        btn_text = page.locator(dropdown_selectors[0]).first.inner_text(timeout=500).strip()
+                        if btn_text:
+                            selected_model_name = re.sub(r'\s+', '-', btn_text.lower())
+                            selected_model_name = selected_model_name[0].upper() + selected_model_name[1:]
+                            log(f"  Read current model from button: '{selected_model_name}'")
+                    except Exception:
+                        pass
                     page.keyboard.press("Escape")
-                    log("  Pro option not found in dropdown — may already be selected")
+                    log(f"  Pro option not found in dropdown — current: '{selected_model_name}'")
             else:
-                log("  No model dropdown found — likely already on Pro")
+                # Try to read model from label without opening dropdown
+                try:
+                    for sel in dropdown_selectors:
+                        btn = page.locator(sel)
+                        if btn.count() > 0:
+                            btn_text = btn.first.inner_text(timeout=500).strip()
+                            if btn_text and len(btn_text) > 2:
+                                selected_model_name = re.sub(r'\s+', '-', btn_text.lower())
+                                selected_model_name = selected_model_name[0].upper() + selected_model_name[1:]
+                                log(f"  Read current model from button (no dropdown): '{selected_model_name}'")
+                                break
+                except Exception:
+                    pass
+                log(f"  No model dropdown found — using: '{selected_model_name}'")
         except Exception as e:
             log(f"  Model selection skipped (non-fatal): {e}")
+
+        # Write selected model name to sidecar file so pipeline can read it
+        try:
+            model_sidecar = prompt_file + ".model"
+            with open(model_sidecar, 'w', encoding='utf-8') as _mf:
+                _mf.write(selected_model_name)
+            log(f"  Model name written to sidecar: {selected_model_name}")
+        except Exception as e:
+            log(f"  Could not write model sidecar (non-fatal): {e}")
 
         page.wait_for_timeout(500)  # Brief settle
 
@@ -516,20 +722,79 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
         except Exception as e:
             log(f"Canvas disable check skipped: {e}")
 
+
+
+
         # --- INJECT MEGA-PROMPT ---
         log("Injecting mega-prompt...")
         try:
+            # 1. Inject massive text via DOM to bypass Gemini's ~40k char paste limit
             js_prompt = mega_prompt.replace('\\', '\\\\').replace('`', '\\`').replace('$', '\\$')
-            page.evaluate(f"() => {{ const box = document.querySelector('rich-textarea p'); if (box) box.innerText = `{js_prompt}`; }}")
+            page.evaluate(f"""() => {{ 
+                const box = document.querySelector('rich-textarea p') || document.querySelector('rich-textarea div[contenteditable="true"]'); 
+                if (box) box.innerText = `{js_prompt}`; 
+            }}""")
             page.wait_for_timeout(500)
-            page.keyboard.press("Enter")
+            
+            # 2. Focus the box and type a space to natively wake up the React/Lit event listeners
+            prompt_box = page.locator('rich-textarea, div[contenteditable="true"], textarea').first
+            prompt_box.click(timeout=5000)
+            page.keyboard.press("Space")
+            page.wait_for_timeout(300)
+            page.keyboard.press("Backspace")
+            page.wait_for_timeout(500)
+            
+            # 3. Send the prompt via Send button click (more reliable than Enter)
+            prompt_sent = False
+            send_btn = page.locator('button[aria-label*="Send message"], button[aria-label*="Nachricht senden"], button.send-button')
+            if send_btn.count() > 0 and send_btn.first.is_visible() and send_btn.first.is_enabled():
+                try:
+                    send_btn.first.click(timeout=3000)
+                    log("  Clicked Send button explicitly.")
+                    prompt_sent = True
+                except Exception:
+                    pass
+            
+            # 4. Fallback: If Send button click didn't work, try Enter
+            if not prompt_sent:
+                page.keyboard.press("Enter")
+                log("  Pressed Enter to send prompt (Send button fallback).")
+            
+            # 5. Wait and verify the prompt was actually sent (textarea should clear)
+            page.wait_for_timeout(2000)
+            
+            # Check if generation has started (stop button visible = prompt was sent)
+            generation_started = False
+            for ssel in ['button[aria-label*="Stop generating"]', 'button[aria-label*="Generierung stoppen"]']:
+                try:
+                    stop_btn = page.locator(ssel)
+                    if stop_btn.count() > 0 and stop_btn.first.is_visible():
+                        generation_started = True
+                        break
+                except Exception:
+                    pass
+            
+            if not generation_started:
+                # Double-check: is the textarea still full? If so, try sending again
+                textarea_content = page.evaluate("""() => {
+                    const box = document.querySelector('rich-textarea p') || document.querySelector('rich-textarea div[contenteditable="true"]');
+                    return box ? box.innerText.trim().length : 0;
+                }""")
+                if textarea_content > 100:
+                    log(f"  ⚠️ Textarea still has {textarea_content} chars — prompt may not have sent. Retrying...")
+                    page.keyboard.press("Enter")
+                    page.wait_for_timeout(2000)
+                else:
+                    log("  ✅ Textarea cleared — prompt was sent successfully.")
+                
         except Exception as e:
             log(f"Primary injection failed: {e}. Trying fallback...")
             try:
+                # If JS injection totally fails, try Playwright's native insertion
                 prompt_box = page.locator('rich-textarea, div[contenteditable="true"], textarea').first
                 prompt_box.click(timeout=5000)
                 page.keyboard.insert_text(mega_prompt)
-                page.wait_for_timeout(500)
+                page.wait_for_timeout(1000)
                 page.keyboard.press("Enter")
             except Exception as e2:
                 log(f"FATAL: Failed to inject prompt: {e2}")
@@ -537,9 +802,14 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                 return False
 
         # --- WAIT FOR GENERATION TO FINISH ---
+        canvas_detected_during_gen = False
+
         def wait_for_completion():
-            """Wait for Gemini to finish generating with active loop detection."""
-            log("Waiting for generation to complete (with loop detection)...")
+            """Wait for Gemini to finish generating with Canvas detection and loop detection.
+            Returns: 'DONE', 'CANVAS', 'TIMEOUT', 'WORD_SALAD'
+            """
+            nonlocal canvas_detected_during_gen
+            log("Waiting for generation to complete (with Canvas+loop detection)...")
             finished_selectors = [
                 'button[aria-label*="Good response"]',
                 'button[aria-label*="Gute Antwort"]',
@@ -552,20 +822,58 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                 'button:has(svg.stop-icon)',
                 'button:has(mat-icon:has-text("stop"))'
             ]
-            
-            # Polling loop instead of static wait
-            max_wait = 420  # 7 minutes
+
+            # Polling loop
+            max_wait = 750  # 12.5 minutes (raised from 420s)
             start_wait = time.time()
             rep_check_interval = 5
-            
+            canvas_check_counter = 0
+
             while time.time() - start_wait < max_wait:
+                # 0. Canvas check every ~30s (every 6 poll cycles)
+                canvas_check_counter += 1
+                if canvas_check_counter % 6 == 0:
+                    if detect_canvas_active(page):
+                        log("  ⚠️ CANVAS DETECTED during generation — stopping and flagging for retry.")
+                        # Try to stop generation first
+                        for ssel in stop_selectors:
+                            stop_btn = page.locator(ssel)
+                            if stop_btn.count() > 0:
+                                try:
+                                    stop_btn.first.click()
+                                    page.wait_for_timeout(500)
+                                except Exception:
+                                    pass
+                                break
+                        canvas_detected_during_gen = True
+                        return 'CANVAS'
+
                 # 1. Check for UI completion signal
                 try:
-                    for sel in finished_selectors:
-                        if page.locator(sel).count() > 0:
-                            log("  ✅ Generation complete (UI signal detected)")
-                            return
-                except Exception: pass
+                    is_generating = False
+                    for ssel in stop_selectors:
+                        stop_btn = page.locator(ssel)
+                        if stop_btn.count() > 0 and stop_btn.first.is_visible():
+                            is_generating = True
+                            break
+                    
+                    if not is_generating:
+                        for sel in finished_selectors:
+                            loc = page.locator(sel)
+                            if loc.count() > 0 and loc.last.is_visible():
+                                # Double-check it didn't just flicker
+                                page.wait_for_timeout(2000)
+                                is_gen_now = False
+                                for ssel in stop_selectors:
+                                    sbtn = page.locator(ssel)
+                                    if sbtn.count() > 0 and sbtn.first.is_visible():
+                                        is_gen_now = True
+                                        break
+                                if not is_gen_now:
+                                    log("  ✅ Generation complete (UI signal detected)")
+                                    return 'DONE'
+                except Exception:
+                    pass
 
                 # 2. Check for infinite loops / word salad in DOM
                 try:
@@ -574,33 +882,25 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                         if (msgs.length === 0) return "";
                         return msgs[msgs.length-1].innerText;
                     }""")
-                    
+
                     if current_text:
-                        # Split by whitespace to get tokens
                         words = [w.lower() for w in re.split(r'\s+', current_text) if len(w) > 2]
                         if len(words) > 100:
-                            # Sample the last 100 words
                             recent_words = words[-100:]
                             unique_ratio = len(set(recent_words)) / 100
-                            
-                            # Log diversity for debugging (to stderr)
-                            # log(f"  [Monitor] Diversity: {unique_ratio:.2f}")
 
                             if unique_ratio < 0.28:
                                 log(f"  ⚠️ WORD SALAD DETECTED (Diversity: {unique_ratio:.2f}). Force-stopping.")
-                                
-                                # Try to click "Stop generating" button
                                 for ssel in stop_selectors:
                                     stop_btn = page.locator(ssel)
                                     if stop_btn.count() > 0 and stop_btn.first.is_visible():
                                         stop_btn.first.click()
                                         log("  ✅ Clicked 'Stop generating' button.")
                                         break
-                                
                                 page.wait_for_timeout(1000)
-                                return
-                        
-                        # Existing exact-line repetition check as fallback
+                                return 'WORD_SALAD'
+
+                        # Exact-line repetition check
                         latest_lines = current_text.split('\n')[-20:]
                         if len(latest_lines) >= 15:
                             from collections import Counter
@@ -608,14 +908,55 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                             most_common, freq = counts.most_common(1)[0] if counts else ("", 0)
                             if freq >= 12 and (most_common in ["[RAW-SRC] EOF", "EOF"] or len(most_common) > 10):
                                 log(f"  ⚠️ LOOP DETECTED on line: '{most_common}' ({freq}/20). Force-stopping.")
-                                return
-                except Exception: pass
+                                return 'WORD_SALAD'
+                except Exception:
+                    pass
 
                 page.wait_for_timeout(rep_check_interval * 1000)
-                
-            log("  ⚠️ UI signal timeout. Proceeding to extraction.")
 
-        wait_for_completion()
+            log("  ⚠️ Generation timed out after 750s. Returning TIMEOUT status.")
+            return 'TIMEOUT'
+
+        gen_status = wait_for_completion()
+        log(f"  Generation status: {gen_status}")
+
+        # --- CANVAS DETECTED: escape and signal for infrastructure retry ---
+        if gen_status == 'CANVAS':
+            log("  [Canvas] Escaping Canvas mode and flagging infrastructure retry...")
+            escape_canvas(page)
+            browser.close()
+            return 'CANVAS'
+
+        # --- TIMEOUT: signal for infrastructure retry ---
+        if gen_status == 'TIMEOUT':
+            log("  [Timeout] Generation timed out — flagging infrastructure retry...")
+            # Try to stop generation
+            for ssel in [
+                'button[aria-label*="Stop generating"]',
+                'button[aria-label*="Generierung stoppen"]',
+            ]:
+                try:
+                    btn = page.locator(ssel)
+                    if btn.count() > 0:
+                        btn.first.click()
+                        page.wait_for_timeout(500)
+                        break
+                except Exception:
+                    pass
+            browser.close()
+            return 'TIMEOUT'
+
+        # --- POST-GENERATION: Double-check Canvas hasn't activated at end ---
+        page.wait_for_timeout(1000)
+        if detect_canvas_active(page):
+            log("  [Canvas] Canvas detected AFTER generation — escaping before extraction...")
+            escape_canvas(page)
+            # Wait for normal chat to settle
+            page.wait_for_timeout(2000)
+            if detect_canvas_active(page):
+                log("  [Canvas] Canvas persists — flagging infrastructure retry.")
+                browser.close()
+                return 'CANVAS'
 
         # ── PHASE A: Extract Gemini's Internal Thinking ──
         log("Phase A: Extracting Gemini thinking...")
@@ -624,18 +965,26 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
         try:
             think_btn_selectors = [
                 'button.thoughts-header-button',
+                '.thoughts-header-button',
                 'button:has-text("Gedankengang anzeigen")',
                 'button:has-text("Show thinking")',
                 'button:has-text("Show thoughts")',
                 'button:has-text("Thought for")',
                 'button:has-text("Gedankengang")',
+                'button:has-text("Hat ")',
+                'button:has-text("nachgedacht")',
+                '[role="button"]:has-text("Thought for")',
+                '[role="button"]:has-text("Hat ")',
+                '[role="button"]:has-text("nachgedacht")',
+                'div[class*="thoughts-header"]'
             ]
 
             think_btn = None
             for sel in think_btn_selectors:
                 btn = page.locator(sel)
                 if btn.count() > 0:
-                    think_btn = btn.first
+                    # MUST pick the LAST button on the page (the latest message)
+                    think_btn = btn.last
                     break
 
             if think_btn:
@@ -649,14 +998,20 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                         '[class*="thought-content"]', '[class*="thoughts-text"]',
                     ];
                     for (const sel of selectors) {
-                        const el = document.querySelector(sel);
-                        if (el && el.innerText && el.innerText.trim().length > 10) {
-                            return el.innerText.trim();
+                        const els = document.querySelectorAll(sel);
+                        if (els.length > 0) {
+                            const el = els[els.length - 1]; // Pick the LAST one
+                            if (el && el.innerText && el.innerText.trim().length > 10) {
+                                return el.innerText.trim();
+                            }
                         }
                     }
                     // Walk from button
-                    const btn = document.querySelector('.thoughts-header-button') ||
-                                document.querySelector('button[class*="thought"]');
+                    let btns = Array.from(document.querySelectorAll('button, [role="button"]')).filter(el => {
+                        const text = el.innerText || '';
+                        return text.includes('Thought for') || text.includes('Hat ') || text.includes('nachgedacht') || text.includes('Gedankengang') || text.includes('Show thinking');
+                    });
+                    const btn = btns.length > 0 ? btns[btns.length - 1] : null;
                     if (btn) {
                         const parent = btn.closest('[class*="thought"]') || btn.parentElement;
                         if (parent) {
@@ -697,7 +1052,14 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                     else:
                         gemini_thinking = "[EXTRACTION_FAILED]"
             else:
-                gemini_thinking = "[NO_THINKING_SECTION]"
+                    if gemini_thinking == "[NO_THINKING_SECTION]":
+                        try:
+                            with open(os.path.join("Output", "dump_nothinking.html"), "w", encoding="utf-8") as f:
+                                f.write(page.content())
+                            log("  [Dump] Saved page DOM to Output/dump_nothinking.html for inspection.")
+                        except Exception:
+                            pass
+
         except Exception as e:
             gemini_thinking = f"[EXTRACTION_ERROR] {str(e)}"
             log(f"Thinking extraction error: {e}")
@@ -835,7 +1197,7 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
 
         browser.close()
 
-    return success
+    return 'OK' if success else False
 
 
 if __name__ == "__main__":
@@ -850,4 +1212,14 @@ if __name__ == "__main__":
     seconds = elapsed % 60
     log(f"TOTAL TIME: {minutes}m {seconds:.1f}s")
 
-    sys.exit(0 if result else 1)
+    # Exit codes: 0=success, 1=failure, 2=canvas, 3=timeout
+    if result == 'OK':
+        sys.exit(0)
+    elif result == 'CANVAS':
+        log("EXIT: Canvas mode detected — pipeline should infrastructure-retry")
+        sys.exit(2)
+    elif result == 'TIMEOUT':
+        log("EXIT: Generation timed out — pipeline should infrastructure-retry")
+        sys.exit(3)
+    else:
+        sys.exit(1)

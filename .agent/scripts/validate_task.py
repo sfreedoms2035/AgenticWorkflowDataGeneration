@@ -59,6 +59,7 @@ BANNED_VOCABULARY = [
     "the user requests",
     "the document says", "source material", "as mentioned in the pdf",
     "based on the provided", "the text states", "generate a task",
+    "generate a multi-turn", "create a coding task", "produce a dataset",
     "cite"
 ]
 
@@ -72,17 +73,27 @@ FOLLOWUP_PLACEHOLDERS = [
 # Instruction-echo sentinels: if these appear in follow-up turn content,
 # the model echoed the prompt template instead of generating real content
 INSTRUCTION_ECHO_PATTERNS = [
+    # Old parenthesized format (kept for legacy/repair prompts)
     "(Write a 2-3 sentence technical inquiry",
     "(Write the first technical response here",
     "(Write another 2-3 sentence",
     "(Write the final technical response here",
-    "BANNED VOCABULARY (CRITICAL)",
     "minimum 100 characters)",
     "Ensure it is highly detailed and contextual.)",
     "Must be highly detailed.)",
+    # New angle-bracket format
+    "<WRITE YOUR TECHNICAL FOLLOW-UP QUESTION HERE",
+    "<WRITE YOUR DETAILED TECHNICAL RESPONSE HERE",
+    "<WRITE YOUR SECOND TECHNICAL FOLLOW-UP QUESTION HERE",
+    "<WRITE YOUR FINAL TECHNICAL RESPONSE HERE",
+    "WRITE YOUR TECHNICAL FOLLOW-UP",
+    "NO template text>",
+    # Meta-instruction leakage (any format)
+    "BANNED VOCABULARY (CRITICAL)",
     "Never say \"based on established practice\"",
     "Never include placeholders like",
     "Every Work Product from VDA/ISO must be treated",
+    "(Write the immersive 3-paragraph problem statement here",
 ]
 
 # JSON key artifact patterns: fragments from LLM treating output as JSON key-value
@@ -118,6 +129,7 @@ def validate_task(filepath):
             "cot_structure": {"status": "PASS", "violations": []},
             "self_containment": {"status": "PASS", "violations": []},
             "followup_quality": {"status": "PASS", "violations": []},
+            "thinking_quality": {"status": "PASS", "violations": []},
         }
     }
 
@@ -525,6 +537,43 @@ def validate_task(filepath):
             fail("followup_quality",
                  f"Turn {idx}: content starts with JSON key artifact",
                  fixable_locally=True)
+
+    # ── Gate 15: [No Thinking] Tag Leaking into Assistant Content ─────────
+    # [No Thinking] is a USER-ONLY prefix. If it appears in assistant turns, it's a generation error.
+    for idx in [1, 3, 5]:  # Assistant turns (0-indexed: Turn 2, Turn 4, Turn 6)
+        if idx < len(convs) and convs[idx].get("role") == "assistant":
+            asst_content = convs[idx].get("content", "")
+            if isinstance(asst_content, str) and asst_content.strip().startswith("[No Thinking]"):
+                fail("followup_quality",
+                     f"Turn {idx}: assistant content starts with '[No Thinking]' — this tag is for USER turns only",
+                     partial_repair=True)
+
+    # ── Gate 16: COT Meta-Generation Detection ────────────────────────────
+    # Detect if the COT/reasoning describes task generation instead of problem solving
+    META_COT_PATTERNS = [
+        "the request is to generate",
+        "i need to generate",
+        "i will structure the user turn",
+        "i need to create a task",
+        "the meta-strategy is",
+        "the document classification is",
+        "the variation schema",
+        "i will generate",
+        "creating a coding task",
+        "to generate a multi-turn",
+        "produce a dataset",
+        "generate exactly 1 distinct",
+    ]
+    reasoning_lower = reasoning.lower()
+    meta_cot_hits = []
+    for pat in META_COT_PATTERNS:
+        if pat in reasoning_lower:
+            meta_cot_hits.append(pat)
+    if len(meta_cot_hits) >= 2:  # Allow 1 borderline match, flag on 2+
+        fail("thinking_quality",
+             f"COT describes task generation instead of problem solving. "
+             f"Meta-generation phrases found: {meta_cot_hits[:5]}",
+             fixable_locally=False)
 
     # Add enriched summary stats to report
     code_lines_stat = 0
