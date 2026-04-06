@@ -533,6 +533,23 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
 
     with sync_playwright() as p:
         user_data_dir = os.path.join(os.getcwd(), ".playwright_profile")
+        
+        # Kill any lingering Chrome instances using our persistent profile.
+        # This prevents "Failed to open a new tab" and profile lock conflicts.
+        try:
+            import subprocess as _sp
+            _sp.run(
+                'taskkill /F /FI "COMMANDLINE eq *playwright_profile*" /FI "IMAGENAME eq chrome.exe" >nul 2>&1',
+                shell=True, timeout=5
+            )
+            _sp.run(
+                'taskkill /F /FI "COMMANDLINE eq *playwright_profile*" /FI "IMAGENAME eq chromium.exe" >nul 2>&1',
+                shell=True, timeout=5
+            )
+            time.sleep(1)  # Let the process fully die
+        except Exception:
+            pass
+        
         browser = p.chromium.launch_persistent_context(
             user_data_dir=user_data_dir,
             headless=False,
@@ -540,32 +557,46 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
             permissions=["clipboard-read", "clipboard-write"]
         )
 
-        # Reuse/clean up tabs from persistent context to prevent stale state bleed.
-        # IMPORTANT: Cannot close ALL tabs — that kills Chrome and breaks new_page().
-        # Strategy: Keep the first tab, close extras, then navigate the survivor to /app.
+        # Get the page — persistent context always opens with at least one default tab
         existing_pages = browser.pages
         if len(existing_pages) > 0:
-            page = existing_pages[0]  # Reuse the first tab
+            page = existing_pages[0]
             # Close any extra tabs
             for extra in existing_pages[1:]:
                 try:
                     extra.close()
                 except Exception:
                     pass
-            # Navigate the surviving tab to a clean /app
-            page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
         else:
-            # No existing tabs (fresh launch) — create one
             page = browser.new_page()
-            page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
         
-        page.wait_for_timeout(2000)
+        # Dismiss any context menus or modals that may be open
+        try:
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+        except Exception:
+            pass
         
-        # If we got redirected to /search or elsewhere, force back to /app
-        if "/app" not in page.url or "/search" in page.url:
-            log(f"  ⚠️ Redirected to {page.url[:80]} — forcing navigation to /app")
-            page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
-            page.wait_for_timeout(2000)
+        # Navigate to clean /app chat page
+        log("Navigating to Gemini /app...")
+        page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
+        page.wait_for_timeout(3000)
+        
+        # Verify we're on /app — if redirected to /search, force navigate again
+        for nav_attempt in range(3):
+            current_url = page.url
+            if "/search" in current_url or "/history" in current_url or "/app" not in current_url:
+                log(f"  ⚠️ Attempt {nav_attempt+1}: Landed on {current_url[:80]} — pressing Escape and retrying /app")
+                try:
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(500)
+                except Exception:
+                    pass
+                page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
+                page.wait_for_timeout(3000)
+            else:
+                log(f"  ✅ On Gemini /app: {current_url[:80]}")
+                break
 
         # --- AUTO-DISMISS: Activity/Consent Pages ---
         def ensure_on_gemini():
