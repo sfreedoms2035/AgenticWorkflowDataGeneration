@@ -570,49 +570,30 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
         else:
             page = browser.new_page()
         
-        # Dismiss any context menus or modals that may be open
+        # Dismiss any context menus or modals — use Escape only
+        # NEVER click in the sidebar area (x < 240px) — that triggers chat history context menus
         try:
             page.keyboard.press("Escape")
             page.wait_for_timeout(500)
-            page.mouse.click(10, 300)  # Click in a safe blank area to dismiss menus
+            page.keyboard.press("Escape")  # Double Escape to be safe
             page.wait_for_timeout(300)
         except Exception:
             pass
         
-        # Navigate to a clean new chat.
-        # Strategy 1: Click "Neuer Chat" / "New chat" sidebar link (most reliable).
-        # Strategy 2: Direct goto /app if sidebar click fails.
-        # Strategy 3: Wait for rich-textarea as the definitive success signal.
-        log("Navigating to a clean new chat...")
+        # Navigate to a clean new chat using JS window.location (bypasses UI redirects).
+        # page.goto() gets intercepted by Gemini's SPA router and redirected to /search.
+        # JS window.location.href forces a hard navigation that the SPA cannot intercept.
+        log("Navigating to clean new chat via JS hard navigation...")
         chat_ready = False
         
         for nav_attempt in range(4):
-            # Try clicking the "New Chat" link in the sidebar first
-            new_chat_clicked = False
-            for nc_sel in [
-                'a[href="/app"]',
-                'a:has-text("Neuer Chat")',
-                'a:has-text("New chat")',
-                'a[data-test-id="new-chat-button"]',
-                'button:has-text("Neuer Chat")',
-                'button:has-text("New chat")',
-            ]:
-                try:
-                    nc = page.locator(nc_sel)
-                    if nc.count() > 0 and nc.first.is_visible():
-                        nc.first.click(timeout=2000)
-                        page.wait_for_timeout(2000)
-                        new_chat_clicked = True
-                        log(f"  ✅ Clicked new chat via: {nc_sel}")
-                        break
-                except Exception:
-                    continue
-            
-            if not new_chat_clicked:
-                # Fallback: direct goto
-                log(f"  ⚠️ Sidebar click failed, forcing goto /app (attempt {nav_attempt+1})")
+            try:
+                page.evaluate("window.location.href = 'https://gemini.google.com/app'")
+                page.wait_for_timeout(4000)
+            except Exception:
+                # If JS eval fails (wrong page state), use goto as fallback
                 page.goto("https://gemini.google.com/app", wait_until="domcontentloaded")
-                page.wait_for_timeout(2000)
+                page.wait_for_timeout(3000)
             
             # The only reliable success signal: rich-textarea is present
             try:
@@ -623,7 +604,7 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
             except Exception:
                 current_url = page.url
                 log(f"  ⚠️ No rich-textarea yet (url={current_url[:60]}), retrying...")
-                # Dismiss any context menu that may have blocked navigation
+                # Dismiss any popups and try again
                 try:
                     page.keyboard.press("Escape")
                     page.wait_for_timeout(500)
