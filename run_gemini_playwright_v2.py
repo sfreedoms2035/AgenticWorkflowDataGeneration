@@ -991,7 +991,41 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
         gemini_thinking = ""
 
         try:
-            # Scoped to message-content to avoid matching the sidebar history
+            # Step 1: Wait for the thoughts-container to populate.
+            # Gemini loads the thinking section asynchronously after generation.
+            # The container may exist but be empty (<!---->) until loaded.
+            log("  [Think] Waiting for thinking section to load...")
+            thoughts_loaded = False
+            for wait_attempt in range(4):  # Up to 4 x 2s = 8 seconds of waiting
+                has_content = page.evaluate("""() => {
+                    // Check if thoughts-container has real child content (not just Angular comments)
+                    const containers = document.querySelectorAll('.thoughts-container');
+                    for (const c of containers) {
+                        // Check for real element children (not comment nodes)
+                        const realChildren = Array.from(c.childNodes).filter(n => n.nodeType === 1);
+                        if (realChildren.length > 0) return true;
+                    }
+                    // Also check for any button/element with thinking-related text
+                    const btns = document.querySelectorAll('button, [role="button"]');
+                    for (const btn of btns) {
+                        const t = (btn.innerText || '').toLowerCase();
+                        if (t.includes('thought') || t.includes('gedankengang') || 
+                            t.includes('nachgedacht') || t.includes('thinking')) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }""")
+                if has_content:
+                    thoughts_loaded = True
+                    log(f"  [Think] Thinking section populated after {(wait_attempt+1)*2}s")
+                    break
+                page.wait_for_timeout(2000)
+
+            if not thoughts_loaded:
+                log("  [Think] Thinking section did not populate within 8s — trying broader search...")
+
+            # Step 2: Search for the thinking expand button
             think_btn_selectors = [
                 'message-content button.thoughts-header-button',
                 'message-content .thoughts-header-button',
@@ -1005,16 +1039,25 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                 'message-content [role="button"]:has-text("Thought for")',
                 'message-content [role="button"]:has-text("Hat ")',
                 'message-content [role="button"]:has-text("nachgedacht")',
-                'message-content div[class*="thoughts-header"]'
+                'message-content div[class*="thoughts-header"]',
+                # Broader fallbacks for newer Gemini UI
+                '.thoughts-container button',
+                '.thoughts-container [role="button"]',
+                '.thoughts-container [class*="header"]',
+                'div[class*="thought"] button',
+                'div[class*="thought"] [role="button"]',
             ]
 
             think_btn = None
             for sel in think_btn_selectors:
-                btn = page.locator(sel)
-                if btn.count() > 0:
-                    # MUST pick the LAST button on the page (the latest message)
-                    think_btn = btn.last
-                    break
+                try:
+                    btn = page.locator(sel)
+                    if btn.count() > 0:
+                        think_btn = btn.last
+                        log(f"  [Think] Found button via: {sel}")
+                        break
+                except Exception:
+                    continue
 
             if think_btn:
                 try:
@@ -1032,7 +1075,7 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                     for (const sel of selectors) {
                         const els = document.querySelectorAll(sel);
                         if (els.length > 0) {
-                            const el = els[els.length - 1]; // Pick the LAST one
+                            const el = els[els.length - 1];
                             if (el && el.innerText && el.innerText.trim().length > 10) {
                                 return el.innerText.trim();
                             }
@@ -1083,14 +1126,33 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                         log(f"Thinking extracted via diff: {len(gemini_thinking)} chars")
                     else:
                         gemini_thinking = "[EXTRACTION_FAILED]"
+                        log("  [Think] Diff method also failed — marking as EXTRACTION_FAILED")
             else:
-                    if gemini_thinking == "[NO_THINKING_SECTION]":
-                        try:
-                            with open(os.path.join("Output", "dump_nothinking.html"), "w", encoding="utf-8") as f:
-                                f.write(page.content())
-                            log("  [Dump] Saved page DOM to Output/dump_nothinking.html for inspection.")
-                        except Exception:
-                            pass
+                # No button found at all — try direct JS content extraction as last resort
+                log("  [Think] No thinking button found — attempting direct JS content extraction...")
+                gemini_thinking = page.evaluate("""() => {
+                    // Last resort: directly read any thoughts-container with content
+                    const containers = document.querySelectorAll('.thoughts-container, [class*="thoughts"]');
+                    for (const c of containers) {
+                        const text = c.innerText || '';
+                        if (text.trim().length > 50) return text.trim();
+                    }
+                    return '';
+                }""") or ""
+
+                if gemini_thinking and len(gemini_thinking) > 50:
+                    log(f"  [Think] Direct JS extraction recovered {len(gemini_thinking)} chars")
+                else:
+                    gemini_thinking = "[NO_THINKING_SECTION]"
+                    log("  [Think] No thinking section found — marking as NO_THINKING_SECTION")
+                    # Always save DOM dump for diagnostics
+                    try:
+                        dump_path = os.path.join("Output", "dump_nothinking.html")
+                        with open(dump_path, "w", encoding="utf-8") as f:
+                            f.write(page.content())
+                        log(f"  [Dump] Saved page DOM to {dump_path} for inspection.")
+                    except Exception:
+                        pass
 
         except Exception as e:
             gemini_thinking = f"[EXTRACTION_ERROR] {str(e)}"
