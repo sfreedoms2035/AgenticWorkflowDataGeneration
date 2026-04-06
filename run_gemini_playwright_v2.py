@@ -83,7 +83,8 @@ def extract_semantic_blocks(text):
     if not text:
         return blocks
         
-    pattern = r'[\\!]{3,}\s*([A-Z0-9\-_]+)\s*:?\s*[\\!]{3,}\s*(.*?)(?=[\\!]{3,}\s*[A-Z0-9\-_]+\s*:?\s*[\\!]{3,}|\s*$)'
+    # Require delimiters to be at the start of a line (or string) to prevent mid-sentence severing
+    pattern = r'(?:^|\n)[ \t]*\**[\\!]{3,}\s*([A-Z0-9\-_]+)\s*:?\s*[\\!]{3,}\**\s*(.*?)(?=(?:^|\n)[ \t]*\**[\\!]{3,}\s*[A-Z0-9\-_]+\s*:?\s*[\\!]{3,}|\s*$)'
     matches = re.finditer(pattern, text, re.DOTALL)
     
     for match in matches:
@@ -301,8 +302,8 @@ def validate_and_save_json(llm_response, out_json_path, thinking_text=None):
             metadata = {}
 
         # 2. Extraction: Reasoning
-        # Use REASONING block first, then fallback to passed thinking_text
-        reasoning_main = clean_semantic_block(blocks.get("REASONING", thinking_text or "(Missing thinking monologue)"))
+        # Strictly use REASONING block. Do NOT fallback to UI thinking_text, as they serve different purposes.
+        reasoning_main = clean_semantic_block(blocks.get("REASONING", "(Missing REASONING block in primary output)"))
         # Strip both normal and escaped think tags to prevent doubling
         reasoning_main = re.sub(r'\\?</?think\\?>', '', reasoning_main, flags=re.IGNORECASE).strip()
 
@@ -990,20 +991,21 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
         gemini_thinking = ""
 
         try:
+            # Scoped to message-content to avoid matching the sidebar history
             think_btn_selectors = [
-                'button.thoughts-header-button',
-                '.thoughts-header-button',
-                'button:has-text("Gedankengang anzeigen")',
-                'button:has-text("Show thinking")',
-                'button:has-text("Show thoughts")',
-                'button:has-text("Thought for")',
-                'button:has-text("Gedankengang")',
-                'button:has-text("Hat ")',
-                'button:has-text("nachgedacht")',
-                '[role="button"]:has-text("Thought for")',
-                '[role="button"]:has-text("Hat ")',
-                '[role="button"]:has-text("nachgedacht")',
-                'div[class*="thoughts-header"]'
+                'message-content button.thoughts-header-button',
+                'message-content .thoughts-header-button',
+                'message-content button:has-text("Gedankengang anzeigen")',
+                'message-content button:has-text("Show thinking")',
+                'message-content button:has-text("Show thoughts")',
+                'message-content button:has-text("Thought for")',
+                'message-content button:has-text("Gedankengang")',
+                'message-content button:has-text("Hat ")',
+                'message-content button:has-text("nachgedacht")',
+                'message-content [role="button"]:has-text("Thought for")',
+                'message-content [role="button"]:has-text("Hat ")',
+                'message-content [role="button"]:has-text("nachgedacht")',
+                'message-content div[class*="thoughts-header"]'
             ]
 
             think_btn = None
@@ -1015,8 +1017,11 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                     break
 
             if think_btn:
-                think_btn.click()
-                page.wait_for_timeout(1500)
+                try:
+                    think_btn.click(timeout=3000)
+                    page.wait_for_timeout(1500)
+                except Exception as e:
+                    log(f"  Warning: Found thinking button but failed to click it within 3s: {e}")
 
                 gemini_thinking = page.evaluate("""() => {
                     const selectors = [

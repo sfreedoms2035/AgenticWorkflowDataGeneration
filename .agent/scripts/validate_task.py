@@ -384,6 +384,8 @@ def validate_task(filepath):
 
     # Normalize: convert escaped \\n sequences to actual newlines for regex matching
     think_normalized = think_content.replace("\\n", "\n").replace("\\\\n", "\n")
+    # Collapse multiple horizontal spaces to single spaces to allow matching against Gemini's double-spaced lists
+    think_normalized = re.sub(r'[ \t]+', ' ', think_normalized)
 
     # ── Gate 5a: Check parent step headers (1. through 8.) ───────────────
     missing_parents = []
