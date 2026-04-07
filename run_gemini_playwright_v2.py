@@ -738,99 +738,200 @@ CRITICAL AVOIDANCE: DO NOT use "Canvas" mode, "Gems", or any interactive coding 
                 return False
 
 
-        # --- ALWAYS SELECT PRO MODEL + READ ACTUAL MODEL NAME ---
-        log("Selecting Gemini Pro model...")
+        # --- ALWAYS SELECT PRO MODEL + VERIFY SELECTION ---
+        log("Selecting and verifying Gemini Pro model...")
         selected_model_name = "Gemini-3.1-pro"  # default fallback
-        try:
-            # Click the model dropdown
-            dropdown_selectors = [
-                'button[aria-label*="Model"]',
-                'button[aria-label*="Modell"]',
-                'button[data-test-id*="model"]',
-                'button.model-selector',
-                'button[class*="model"]',
-            ]
-            dropdown_clicked = False
-            for sel in dropdown_selectors:
-                dropdown = page.locator(sel)
-                if dropdown.count() > 0:
-                    dropdown.first.click(timeout=3000)
-                    page.wait_for_timeout(1000)
-                    dropdown_clicked = True
-                    log(f"  Dropdown opened via: {sel}")
-                    break
 
-            if dropdown_clicked:
-                # Select Pro option — try multiple patterns
-                pro_patterns = [
-                    ('text="3.1 Pro"',      "Gemini-3.1-pro"),
-                    ('span:has-text("3.1 Pro")', "Gemini-3.1-pro"),
-                    ('div:has-text("3.1 Pro")',  "Gemini-3.1-pro"),
-                    ('text="2.5 Pro"',      "Gemini-2.5-pro"),
-                    ('span:has-text("2.5 Pro")', "Gemini-2.5-pro"),
-                    ('div:has-text("2.5 Pro")',  "Gemini-2.5-pro"),
-                    ('text="Pro"',          "Gemini-pro"),
-                    ('span:has-text("Pro")', "Gemini-pro"),
-                    ('div[role="option"]:has-text("Pro")', "Gemini-pro"),
-                    ('li:has-text("Pro")',   "Gemini-pro"),
-                    ('div:has-text("Pro")',  "Gemini-pro"),
-                ]
-                selected = False
-                for ps, model_label in pro_patterns:
-                    try:
-                        opt = page.locator(ps).last
-                        if opt.is_visible(timeout=1000):
-                            # Try to capture the actual text before clicking
-                            try:
-                                opt_text = opt.inner_text(timeout=500).strip()
-                                if opt_text:
-                                    # Normalize: "Gemini 3.1 Pro" → "Gemini-3.1-pro"
-                                    selected_model_name = re.sub(r'\s+', '-', opt_text.lower())
-                                    selected_model_name = re.sub(r'[^a-z0-9\.\-]', '', selected_model_name)
-                                    selected_model_name = "Gemini-" + selected_model_name.lstrip("gemini-") if not selected_model_name.startswith("gemini") else selected_model_name
-                                    # Capitalize first letter
-                                    selected_model_name = selected_model_name[0].upper() + selected_model_name[1:]
-                                    log(f"  Captured model text: '{opt_text}' → normalized: '{selected_model_name}'")
-                                else:
-                                    selected_model_name = model_label
-                            except Exception:
-                                selected_model_name = model_label
-                            opt.click(timeout=2000)
-                            log(f"  ✅ Selected model via: {ps} → '{selected_model_name}'")
-                            selected = True
-                            break
-                    except Exception:
+        def select_pro_model(max_retries=3):
+            """Robust model selection using actual Gemini DOM structure.
+            
+            DOM structure (as of 2026-04):
+            - Trigger button: button.input-area-switch (inside input area)
+            - Menu panel: div.mat-mdc-menu-panel
+            - Option buttons: button.bard-mode-list-button
+            - Selected state: .is-selected class on the button
+            - Options: Schnell (Flash), Thinking-Modus, Pro, Google AI Ultra
+            """
+            nonlocal selected_model_name
+            
+            for attempt in range(max_retries):
+                try:
+                    # Step 1: Check current model from the trigger button text
+                    current_model = page.evaluate("""() => {
+                        const btn = document.querySelector('button.input-area-switch');
+                        if (!btn) return null;
+                        return btn.innerText.trim();
+                    }""")
+                    
+                    if current_model:
+                        log(f"  Current model indicator: '{current_model}'")
+                        # If already showing "Pro", verify it's actually selected
+                        if "Pro" in current_model and "Ultra" not in current_model:
+                            log(f"  ✅ Pro model already shown in selector (attempt {attempt+1})")
+                            selected_model_name = "Gemini-3.1-pro"
+                            return True
+                    
+                    # Step 2: Open the model dropdown
+                    dropdown_opened = page.evaluate("""() => {
+                        const btn = document.querySelector('button.input-area-switch');
+                        if (btn) { btn.click(); return true; }
+                        
+                        // Fallback: try aria-label based selectors (DE/EN)
+                        const fallbacks = document.querySelectorAll(
+                            'button[aria-label*="Modusauswahl"], button[aria-label*="Model"], button[aria-label*="model"]'
+                        );
+                        for (const fb of fallbacks) {
+                            if (fb.offsetParent !== null) { fb.click(); return true; }
+                        }
+                        return false;
+                    }""")
+                    
+                    if not dropdown_opened:
+                        log(f"  ⚠️ Could not find model dropdown trigger (attempt {attempt+1})")
+                        page.wait_for_timeout(1000)
                         continue
-
-                if not selected:
-                    # Try to read existing selected model from button label
+                    
+                    page.wait_for_timeout(1000)  # Wait for dropdown animation
+                    
+                    # Step 3: Find all model options and identify Pro
+                    model_info = page.evaluate("""() => {
+                        const options = document.querySelectorAll('button.bard-mode-list-button');
+                        if (options.length === 0) {
+                            // Fallback: try mat-mdc-menu-item
+                            const menuItems = document.querySelectorAll('.mat-mdc-menu-item');
+                            if (menuItems.length === 0) return { found: false, options: [] };
+                        }
+                        
+                        const allButtons = options.length > 0 ? options : 
+                            document.querySelectorAll('.mat-mdc-menu-item');
+                        
+                        const result = { found: true, options: [], proIndex: -1 };
+                        
+                        allButtons.forEach((btn, idx) => {
+                            const text = btn.innerText.trim();
+                            const isSelected = btn.classList.contains('is-selected');
+                            const hasCheck = btn.querySelector('.mode-check') !== null;
+                            
+                            result.options.push({
+                                index: idx,
+                                text: text.substring(0, 100),
+                                isSelected: isSelected,
+                                hasCheck: hasCheck
+                            });
+                            
+                            // Identify Pro: button text starts with "Pro" or contains "Pro"
+                            // at the title level (not just in description)
+                            const titleSpans = btn.querySelectorAll('span');
+                            for (const span of titleSpans) {
+                                const spanText = span.innerText.trim();
+                                // Match exactly "Pro" as standalone title, not "Programmier..." or "Probleme"
+                                if (spanText === 'Pro' || spanText === '3.1 Pro') {
+                                    result.proIndex = idx;
+                                    break;
+                                }
+                            }
+                            
+                            // Fallback: if the button text line starts with Pro
+                            if (result.proIndex === -1) {
+                                const lines = text.split('\\n');
+                                if (lines[0].trim() === 'Pro') {
+                                    result.proIndex = idx;
+                                }
+                            }
+                        });
+                        
+                        return result;
+                    }""")
+                    
+                    if not model_info or not model_info.get("found"):
+                        log(f"  ⚠️ No model options found in dropdown (attempt {attempt+1})")
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(500)
+                        continue
+                    
+                    # Log all discovered options
+                    for opt in model_info.get("options", []):
+                        status = "  ✔️" if opt.get("isSelected") else ""
+                        log(f"    Option {opt['index']}: '{opt['text'][:50]}'{status}")
+                    
+                    pro_idx = model_info.get("proIndex", -1)
+                    
+                    if pro_idx == -1:
+                        log(f"  ⚠️ Pro option not found in dropdown options (attempt {attempt+1})")
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(500)
+                        continue
+                    
+                    # Check if Pro is already selected
+                    pro_opt = model_info["options"][pro_idx]
+                    if pro_opt.get("isSelected") or pro_opt.get("hasCheck"):
+                        log(f"  ✅ Pro is already selected (has checkmark)")
+                        selected_model_name = "Gemini-3.1-pro"
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(300)
+                        return True
+                    
+                    # Step 4: Click Pro option
+                    log(f"  🔄 Pro is NOT selected — clicking to select it...")
+                    clicked = page.evaluate(f"""(proIdx) => {{
+                        const options = document.querySelectorAll('button.bard-mode-list-button');
+                        const allButtons = options.length > 0 ? options :
+                            document.querySelectorAll('.mat-mdc-menu-item');
+                        if (proIdx >= 0 && proIdx < allButtons.length) {{
+                            allButtons[proIdx].click();
+                            return true;
+                        }}
+                        return false;
+                    }}""", pro_idx)
+                    
+                    if not clicked:
+                        log(f"  ❌ Failed to click Pro option")
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(500)
+                        continue
+                    
+                    page.wait_for_timeout(1500)  # Wait for selection to take effect
+                    
+                    # Step 5: Verify selection took effect
+                    verify_model = page.evaluate("""() => {
+                        const btn = document.querySelector('button.input-area-switch');
+                        return btn ? btn.innerText.trim() : '';
+                    }""")
+                    
+                    if verify_model and "Pro" in verify_model and "Ultra" not in verify_model:
+                        log(f"  ✅ Pro model verified after selection: '{verify_model}'")
+                        selected_model_name = "Gemini-3.1-pro"
+                        return True
+                    else:
+                        log(f"  ⚠️ Post-selection verification shows: '{verify_model}' (attempt {attempt+1})")
+                    
+                except Exception as e:
+                    log(f"  ⚠️ Model selection error (attempt {attempt+1}): {e}")
                     try:
-                        btn_text = page.locator(dropdown_selectors[0]).first.inner_text(timeout=500).strip()
-                        if btn_text:
-                            selected_model_name = re.sub(r'\s+', '-', btn_text.lower())
-                            selected_model_name = selected_model_name[0].upper() + selected_model_name[1:]
-                            log(f"  Read current model from button: '{selected_model_name}'")
+                        page.keyboard.press("Escape")
                     except Exception:
                         pass
-                    page.keyboard.press("Escape")
-                    log(f"  Pro option not found in dropdown — current: '{selected_model_name}'")
-            else:
-                # Try to read model from label without opening dropdown
-                try:
-                    for sel in dropdown_selectors:
-                        btn = page.locator(sel)
-                        if btn.count() > 0:
-                            btn_text = btn.first.inner_text(timeout=500).strip()
-                            if btn_text and len(btn_text) > 2:
-                                selected_model_name = re.sub(r'\s+', '-', btn_text.lower())
-                                selected_model_name = selected_model_name[0].upper() + selected_model_name[1:]
-                                log(f"  Read current model from button (no dropdown): '{selected_model_name}'")
-                                break
-                except Exception:
-                    pass
-                log(f"  No model dropdown found — using: '{selected_model_name}'")
-        except Exception as e:
-            log(f"  Model selection skipped (non-fatal): {e}")
+                    page.wait_for_timeout(1000)
+            
+            # All retries exhausted - check one final time
+            try:
+                final_check = page.evaluate("""() => {
+                    const btn = document.querySelector('button.input-area-switch');
+                    return btn ? btn.innerText.trim() : '';
+                }""")
+                if final_check:
+                    log(f"  ⚠️ Final model state: '{final_check}' (wanted Pro)")
+                    if "Schnell" in final_check or "Flash" in final_check:
+                        log(f"  ❌ CRITICAL: Flash model detected! Generation quality will be degraded.")
+                    selected_model_name = final_check
+            except Exception:
+                pass
+            
+            return False
+        
+        pro_selected = select_pro_model()
+        if not pro_selected:
+            log("  ⚠️ Could not confirm Pro model selection — proceeding with current model")
 
         # Write selected model name to sidecar file so pipeline can read it
         try:
