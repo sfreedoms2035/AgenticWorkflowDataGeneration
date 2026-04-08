@@ -174,8 +174,12 @@ def clean_repetitive_text(text):
     """Remove verbatim repetitive paragraphs (common in Gemini loops)."""
     if not text: return text
     
-    # Ensure delimiters form their own boundaries so we don't accidentally delete follow-up turns
-    text = re.sub(r'([\\!]{3,})', r'\n\n\1', text)
+    # Ensure standalone block delimiters form their own paragraph boundaries so the
+    # paragraph dedup below doesn't accidentally merge/delete them. IMPORTANT: Only
+    # match full !!!!!BLOCKNAME!!!!! patterns that already start at a line boundary,
+    # NOT inline references like "See the !!!!!REQUIREMENTS!!!!! block for details"
+    # which would falsely truncate the REASONING block at the reference point.
+    text = re.sub(r'(\n)([ \t]*\**[\\!]{3,}\s*[A-Z][A-Z0-9\-_]*\s*:?\s*[\\!]{3,})', r'\n\n\2', text)
     
     # Split by double newline to identify paragraphs
     paragraphs = text.split('\n\n')
